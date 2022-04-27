@@ -40,6 +40,6 @@ NFS Server Structure:
 
 ### Additional Investigation
 - Should configuration files sit beside each other?
-- Should this information live in memory rather than files on disk?
+- Should configuration information live in memory rather than files on disk?
 - Investigate additional caches for performance.
     - Cache eviction options, etc.
