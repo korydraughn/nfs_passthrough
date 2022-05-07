@@ -1,5 +1,31 @@
-# System Design Overview
+# System Design Notes
 
+Last Discussion: 2022-05-02
+
+- Use TCP/IP socket for control
+    - Authentication (can be handled later)
+    - SSL endpoint with a pre-shared key (can be handled later)
+    - Could use allowlist that defines who is allowed to communicate with the server
+
+- One-to-One Mappings only
+    - No IP ranges
+
+- Mappings will use JSON for now
+    - Can rely on the JSON parser to catch issues
+    - Can look into other formats later (perhaps CSV)
+
+- Potential update frequency for mappings:
+    - 1 update per minute
+    - 1 update every 5 minutes
+    - Can see updates every 10 seconds
+
+- Does this require a server.json configuration file?
+    - Not at this time. We can pass the port number to listen on via the command line.
+
+- TODO: Investigate extending the exports file
+    - Does the framework support this?
+
+---
 Date Created: 2022-04-27
 
 Tools Involved:
