@@ -2,6 +2,25 @@
 
 Last Discussion: 2022-05-02
 
+- Can the exports file be extended to support non-standard/custon options?
+    - No, it more or less follows the standard Linux export format
+    - However, implementing the ExportTable API interface does enable this capability
+    - Not urgent, so we will investigate this later if deemed important
+
+- Cold starts are okay for now
+    - Learned that avoiding this problem requires the following:
+        - File handles must be unique
+        - File handles must never be reused
+        - File handles must uniquely identify a file
+    - If implemented correctly, restarting the NFS server after mounting should not require a re-mount
+        - The mount point should still be functional
+
+- Goal for next meeting:
+    - Implement test server that demonstrates mapping of IP address to a specific user
+
+---
+Last Discussion: 2022-05-02
+
 - Use TCP/IP socket for control
     - Authentication (can be handled later)
     - SSL endpoint with a pre-shared key (can be handled later)
