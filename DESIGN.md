@@ -1,6 +1,18 @@
 # System Design Notes
 
-Last Discussion: 2022-05-02
+Last Discussion: 2022-05-23
+
+- Pre-Meeting Information:
+    - Discovered that IP information is captured, but isn't exposed to the layers we care about
+        - We can see the list of clients, but it isn't clear how to identify which one we should handle in the context of an operation
+        - We've sent emails to the nfs4j development team about this. We expect a response before the end of day
+        - Possible Solutions:
+            - The nfs4j development team provides methods that identify the IP for the current operation
+            - Or, we fork the nfs4j project and pass the client information down to the layers we care about
+                - If this route is taken, we will try to get the changes into upstream
+
+---
+Last Discussion: 2022-05-16
 
 - Can the exports file be extended to support non-standard/custon options?
     - No, it more or less follows the standard Linux export format
