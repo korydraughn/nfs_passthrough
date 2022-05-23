@@ -4,7 +4,6 @@ import java.io.IOException;
 
 import javax.security.auth.Subject;
 
-import org.dcache.nfs.v4.NFSv4StateHandler;
 import org.dcache.nfs.v4.NfsIdMapping;
 import org.dcache.nfs.v4.xdr.nfsace4;
 import org.dcache.nfs.vfs.AclCheckable;
@@ -15,21 +14,12 @@ import org.dcache.nfs.vfs.Stat;
 import org.dcache.nfs.vfs.Stat.Type;
 import org.dcache.nfs.vfs.VirtualFileSystem;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.primitives.Longs;
 
 public class VfsPassthrough implements VirtualFileSystem {
 	
-	private NFSv4StateHandler nfsStateHandler;
-	private IpToUserMapper idMapper;
+	private final IdMapper idMapper = new IdMapper();
 	
-	public VfsPassthrough(NFSv4StateHandler nfsStateHandler, String ipToUserMappingsFilePath)
-			throws JsonParseException, JsonMappingException, IOException {
-		this.nfsStateHandler = nfsStateHandler;
-		this.idMapper = new IpToUserMapper(ipToUserMappingsFilePath);
-	}
-
 	@Override
 	public int access(Subject subject, Inode inode, int mode) throws IOException {
 		printLocation();
@@ -54,7 +44,6 @@ public class VfsPassthrough implements VirtualFileSystem {
 	@Override
 	public Inode getRootInode() throws IOException {
 		printLocation();
-		printClients();
 		return toFileHandle(1);
 	}
 
@@ -62,7 +51,6 @@ public class VfsPassthrough implements VirtualFileSystem {
 	public Inode lookup(Inode parent, String name) throws IOException {
 		printLocation();
 		// TODO Auto-generated method stub
-		printClients();
 		return null;
 	}
 
@@ -155,7 +143,6 @@ public class VfsPassthrough implements VirtualFileSystem {
 	public Stat getattr(Inode inode) throws IOException {
 		printLocation();
 		// TODO Auto-generated method stub
-		printClients();
 		return null;
 	}
 
@@ -163,7 +150,6 @@ public class VfsPassthrough implements VirtualFileSystem {
 	public void setattr(Inode inode, Stat stat) throws IOException {
 		printLocation();
 		// TODO Auto-generated method stub
-		printClients();
 		
 	}
 
@@ -216,13 +202,6 @@ public class VfsPassthrough implements VirtualFileSystem {
 	
 	private Inode toFileHandle(long inodeNumber) {
 		return Inode.forFile(Longs.toByteArray(inodeNumber));
-	}
-	
-	private void printClients() {
-		System.out.println("Clients:");
-		nfsStateHandler.getClients().forEach(c -> {
-			System.out.println("\tIP => " + c.getRemoteAddress());
-		});
 	}
 	
 	private void printLocation() {

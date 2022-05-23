@@ -6,7 +6,6 @@ import java.util.concurrent.Callable;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v4.MDSOperationExecutor;
 import org.dcache.nfs.v4.NFSServerV41;
-import org.dcache.nfs.v4.NFSv4StateHandler;
 import org.dcache.oncrpc4j.rpc.OncRpcProgram;
 import org.dcache.oncrpc4j.rpc.OncRpcSvcBuilder;
 
@@ -17,21 +16,15 @@ import picocli.CommandLine.Parameters;
 public class ServerMain implements Callable<Integer> {
 	
 	@Parameters(index = "0",
-				paramLabel = "EXPORTS_FILE",
-				description = "The path to the NFS exports file.")
-	private String exportsFile;
-	
+			    paramLabel = "EXPORT_FILE",
+			    description = "The path to the NFS exports file.")
+	private String exportFilePath;
+
 	@Option(names = {"-p", "--port"},
 			defaultValue = "2049",
-			paramLabel = "NUMBER",
-			description = "The port number to listen on. Defaults to ${DEFAULT-VALUE}")
+			paramLabel = "INTEGER",
+			description = "The port number to listen on. Defaults to ${DEFAULT-VALUE}.")
 	private int portNumber;
-	
-	@Option(names = {"--user-mapping-file"},
-			defaultValue = "config/ip_to_user_mapping.json",
-			paramLabel = "FILE",
-			description = "The path to a JSON file containing mappings from IPs to usernames. Defaults to ${DEFAULT-VALUE}")
-	private String ipToUserMappingFilePath;
 
 	@Option(names = {"-h", "--help"},
 			usageHelp = true,
@@ -48,12 +41,11 @@ public class ServerMain implements Callable<Integer> {
 			.withWorkerThreadIoStrategy()
 			.build();
 		
-		final var nfsStateHandler = new NFSv4StateHandler();
-		final var vfs = new VfsPassthrough(nfsStateHandler, ipToUserMappingFilePath);
+		final var exportFile = new ExportFile(new File(exportFilePath));
+		final var vfs = new VfsPassthrough();
 		
 		final var nfs4 = new NFSServerV41.Builder()
-			.withExportTable(new ExportFile(new File(exportsFile)))
-			.withStateHandler(nfsStateHandler)
+			.withExportTable(exportFile)
 			.withVfs(vfs)
 			.withOperationExecutor(new MDSOperationExecutor())
 			.build();

@@ -10,6 +10,16 @@ Last Discussion: 2022-05-23
             - The nfs4j development team provides methods that identify the IP for the current operation
             - Or, we fork the nfs4j project and pass the client information down to the layers we care about
                 - If this route is taken, we will try to get the changes into upstream
+    - Learned that the ExportFile class provides functionality for rescanning it
+        - Server will stand up a small TCP server that supports one or more operations
+            - GET_STATUS
+                - Not sure what this means yet (just an idea at this time)
+            - SET_EXPORT_FILE
+                - Replaces/Swaps the contents of the existing exports file
+                - Takes a string representing the contents of the exports file
+        - ExportFile class is thread-safe
+        - If the exports information is identical, perhaps we change the model to pull from a centralized location?
+            - Perhaps, a future enhancement
 
 ---
 Last Discussion: 2022-05-16
