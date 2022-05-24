@@ -2,16 +2,20 @@ package org.irods.nfs;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class ApiResponse {
-	
+public class ApiResponse
+{
+    // clang-format off
 	@JsonProperty("error_code") public int errorCode;
 	@JsonProperty("message")    public String message;
-	
-	public ApiResponse() {}
+    // clang-format on
 
-	public ApiResponse(int errorCode, String message) {
-		this.errorCode = errorCode;
-		this.message = message;
-	}
+    public ApiResponse()
+    {
+    }
 
+    public ApiResponse(int errorCode, String message)
+    {
+        this.errorCode = errorCode;
+        this.message = message;
+    }
 }
