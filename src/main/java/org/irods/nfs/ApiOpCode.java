@@ -1,9 +1,8 @@
 package org.irods.nfs;
 
-public enum ApiOpCode {
+public class ApiOpCode {
 	
-	NOT_INITIALIZED,
-	GET_STATUS,
-	UPDATE
+	public static final int SET_EXPORT_FILE_DATA	= 1000;
+	public static final int READ_EXPORT_FILE		= 1001;
 
 }

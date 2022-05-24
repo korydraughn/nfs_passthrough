@@ -1,7 +1,9 @@
 package org.irods.nfs;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class ApiRequest {
 	
-	 public ApiOpCode code = ApiOpCode.NOT_INITIALIZED;
-	 public String data;
+	 @JsonProperty("op_code") public int opCode;
+	 @JsonProperty("payload") public String payload;
 }

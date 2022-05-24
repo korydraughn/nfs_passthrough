@@ -23,8 +23,14 @@ public class ServerMain implements Callable<Integer> {
 	@Option(names = {"-p", "--port"},
 			defaultValue = "2049",
 			paramLabel = "INTEGER",
-			description = "The port number to listen on. Defaults to ${DEFAULT-VALUE}.")
-	private int portNumber;
+			description = "The port number to listen on for NFS operations. Defaults to ${DEFAULT-VALUE}.")
+	private int nfsPortNumber;
+
+	@Option(names = {"--export-server-port"},
+			defaultValue = "9402",
+			paramLabel = "INTEGER",
+			description = "The port number to listen on for export file operations. Defaults to ${DEFAULT-VALUE}.")
+	private int exportServerPortNumber;
 
 	@Option(names = {"-h", "--help"},
 			usageHelp = true,
@@ -35,27 +41,37 @@ public class ServerMain implements Callable<Integer> {
 	public Integer call() throws Exception {
 		// @formatter:off
 		final var nfsSvc = new OncRpcSvcBuilder()
-			.withPort(portNumber)
+			.withPort(nfsPortNumber)
 			.withTCP()
 			.withAutoPublish()
 			.withWorkerThreadIoStrategy()
 			.build();
-		
-		final var exportFile = new ExportFile(new File(exportFilePath));
-		final var vfs = new VfsPassthrough();
-		
-		final var nfs4 = new NFSServerV41.Builder()
-			.withExportTable(exportFile)
-			.withVfs(vfs)
-			.withOperationExecutor(new MDSOperationExecutor())
-			.build();
 		// @formatter:on
 		
-		nfsSvc.register(new OncRpcProgram(100003, 4), nfs4);
+		final var exportFile = new ExportFile(new File(exportFilePath));
+		final var exportFileServer = new ExportFileUpdateServer(exportServerPortNumber, exportFilePath, exportFile);
+		
+		try {
+            exportFileServer.run();
+            
+            // @formatter:off
+            final var nfs4 = new NFSServerV41.Builder()
+                .withExportTable(exportFile)
+                .withVfs(new VfsPassthrough())
+                .withOperationExecutor(new MDSOperationExecutor())
+                .build();
+            // @formatter:on
+            
+            nfsSvc.register(new OncRpcProgram(100003, 4), nfs4);
 
-		nfsSvc.start();
-			
-		System.in.read();
+            nfsSvc.start();
+                
+            System.in.read();
+		}
+		finally {
+			exportFileServer.shutdown();
+			nfsSvc.stop();
+		}
 		
 		return 0;
 	}
