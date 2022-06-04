@@ -1,5 +1,33 @@
 # System Design Notes
 
+Last Discussion: 2022-05-30
+
+- No meeting due to Holiday
+
+- Implemented first draft of the socket server that will be responsible for servicing export file updates
+    - Built upon the Netty framework
+    - Server supports two operations
+        - **SET_EXPORT_FILE_DATA**
+            - Export file data is represented as a string (empty strings will be rejected)
+            - Writes the export file contents to a file in /tmp
+            - Creates a backup of the original export file
+            - Instantiate an ExportFile object that will either hold an empty or non-empty list of export entries
+                - If the list of export entries is empty, this is considered an error
+                - If the list of export entries is non-empty, we replace the export file with the file under /tmp and instruct the server to rescan the export file
+            - I am actively testing the ExportFile::rescan function to see how it behaves when invalid data is encountered
+        - **READ_EXPORT_FILE**
+            - Returns the contents of the active export file to the client
+        - Only one client is allowed to interact with the update server at a time
+        - If a request is being serviced, subsequent requests will receive an error indicating an operation is in progress
+            - This means, clients must watch for the error and resend their update
+
+- Next steps:
+    - Start fleshing out the VFS implementation so we can test the export file update logic
+    - Determine where the export file lives
+        - Is it located under /etc/\<nfs_passthrough_directory\> or somewhere else?
+        - Is it passed as a command line argument on startup (i.e. the file can be located anywhere)?
+
+---
 Last Discussion: 2022-05-23
 
 - Pre-Meeting Information:
