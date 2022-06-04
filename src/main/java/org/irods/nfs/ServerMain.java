@@ -3,11 +3,15 @@ package org.irods.nfs;
 import java.io.File;
 import java.util.concurrent.Callable;
 
+import org.apache.logging.log4j.LogManager;
 import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v4.MDSOperationExecutor;
 import org.dcache.nfs.v4.NFSServerV41;
 import org.dcache.oncrpc4j.rpc.OncRpcProgram;
+import org.dcache.oncrpc4j.rpc.OncRpcSvc;
 import org.dcache.oncrpc4j.rpc.OncRpcSvcBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
@@ -15,6 +19,11 @@ import picocli.CommandLine.Parameters;
 
 public class ServerMain implements Callable<Integer>
 {
+    private static final Logger log = LoggerFactory.getLogger(ServerMain.class);
+
+    OncRpcSvc nfsSvc;
+    ExportFileUpdateServer exportFileServer;
+
     @Parameters(index = "0", paramLabel = "EXPORT_FILE", description = "The path to the NFS exports file.")
     private String exportFilePath;
 
@@ -35,17 +44,19 @@ public class ServerMain implements Callable<Integer>
 
     @Override public Integer call() throws Exception
     {
+        addShutdownHookForLogger();
+
         // clang-format off
-		final var nfsSvc = new OncRpcSvcBuilder()
-			.withPort(nfsPortNumber)
-			.withTCP()
-			.withAutoPublish()
-			.withWorkerThreadIoStrategy()
-			.build();
+        nfsSvc = new OncRpcSvcBuilder()
+            .withPort(nfsPortNumber)
+            .withTCP()
+            .withAutoPublish()
+            .withWorkerThreadIoStrategy()
+            .build();
         // clang-format on
 
         final var exportFile = new ExportFile(new File(exportFilePath));
-        final var exportFileServer = new ExportFileUpdateServer(exportServerPortNumber, exportFilePath, exportFile);
+        exportFileServer = new ExportFileUpdateServer(exportServerPortNumber, exportFilePath, exportFile);
 
         try {
             exportFileServer.run();
@@ -64,12 +75,35 @@ public class ServerMain implements Callable<Integer>
 
             System.in.read();
         }
-        finally {
-            exportFileServer.shutdown();
-            nfsSvc.stop();
+        catch (Exception e) {
+            log.error(e.getMessage());
         }
 
         return 0;
+    }
+
+    private void addShutdownHookForLogger()
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override public void run()
+            {
+                log.info("Shutting down server.");
+
+                try {
+                    if (nfsSvc != null) {
+                        nfsSvc.stop();
+                    }
+                }
+                catch (Exception e) {
+                }
+
+                if (exportFileServer != null) {
+                    exportFileServer.shutdown();
+                }
+
+                LogManager.shutdown();
+            }
+        });
     }
 
     public static void main(String[] args)

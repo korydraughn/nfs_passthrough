@@ -5,6 +5,7 @@ import java.io.IOException;
 import javax.security.auth.Subject;
 
 import org.dcache.nfs.v4.NfsIdMapping;
+import org.dcache.nfs.v4.SimpleIdMap;
 import org.dcache.nfs.v4.xdr.nfsace4;
 import org.dcache.nfs.vfs.AclCheckable;
 import org.dcache.nfs.vfs.DirectoryStream;
@@ -18,7 +19,7 @@ import com.google.common.primitives.Longs;
 
 public class VfsPassthrough implements VirtualFileSystem
 {
-    private final IdMapper idMapper = new IdMapper();
+    private final NfsIdMapping idMapper = new SimpleIdMap();
 
     @Override public int access(Subject subject, Inode inode, int mode) throws IOException
     {
