@@ -1,5 +1,16 @@
 # System Design Notes
 
+Last Discussion: 2022-06-06
+
+- Export File Updates (Partial vs Full)
+    - On a partial update
+        - We can return the lines that failed
+
+- Export entry uniqueness requirements
+    - Primary Key => (Mount point, IP)
+    - Return an error stating there is a unique constraint error
+
+---
 Last Discussion: 2022-05-30
 
 - No meeting due to Holiday
