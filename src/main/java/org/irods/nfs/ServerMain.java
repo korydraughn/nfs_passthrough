@@ -1,12 +1,18 @@
 package org.irods.nfs;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.attribute.FileAttribute;
 import java.util.concurrent.Callable;
 
 import org.apache.logging.log4j.LogManager;
-import org.dcache.nfs.ExportFile;
 import org.dcache.nfs.v4.MDSOperationExecutor;
 import org.dcache.nfs.v4.NFSServerV41;
+import org.dcache.nfs.v4.xdr.nfs4_prot;
+import org.dcache.oncrpc4j.portmap.OncRpcEmbeddedPortmap;
 import org.dcache.oncrpc4j.rpc.OncRpcProgram;
 import org.dcache.oncrpc4j.rpc.OncRpcSvc;
 import org.dcache.oncrpc4j.rpc.OncRpcSvcBuilder;
@@ -24,8 +30,13 @@ public class ServerMain implements Callable<Integer>
     OncRpcSvc nfsSvc;
     ExportFileUpdateServer exportFileServer;
 
-    @Parameters(index = "0", paramLabel = "EXPORT_FILE", description = "The path to the NFS exports file.")
+    @Parameters(index = "0",
+                paramLabel = "EXPORT_FILE",
+                description = "The path to the NFS exports file. If EXPORT_FILE does not exist, it is created.")
     private String exportFilePath;
+
+    @Parameters(index = "1", paramLabel = "ROOT_DIRECTORY", description = "The root filesystem directory to export.")
+    private String rootDir;
 
     @Option(names = {"-p", "--port"},
             defaultValue = "2049",
@@ -39,12 +50,22 @@ public class ServerMain implements Callable<Integer>
             description = "The port number to listen on for export file operations. Defaults to ${DEFAULT-VALUE}.")
     private int exportServerPortNumber;
 
+    @Option(names = {"--with-portmap"}, defaultValue = "false", description = "Use embedded portmap.")
+    private boolean enablePortmap;
+
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Displays help message.")
     private boolean helpRequested;
 
     @Override public Integer call() throws Exception
     {
         addShutdownHookForLogger();
+
+        // Create the export file if it does not exist.
+        try {
+            Files.createFile(Path.of(exportFilePath), (FileAttribute<?>[]) null);
+        }
+        catch (Exception e) {
+        }
 
         // clang-format off
         nfsSvc = new OncRpcSvcBuilder()
@@ -55,22 +76,27 @@ public class ServerMain implements Callable<Integer>
             .build();
         // clang-format on
 
-        final var exportFile = new ExportFile(new File(exportFilePath));
+        final var exportFile = new DynamicExportFile(new File(exportFilePath));
         exportFileServer = new ExportFileUpdateServer(exportServerPortNumber, exportFilePath, exportFile);
 
         try {
             exportFileServer.run();
 
+            if (enablePortmap) {
+                new OncRpcEmbeddedPortmap();
+            }
+
             // clang-format off
             final var nfs4 = new NFSServerV41.Builder()
                 .withExportTable(exportFile)
-                .withVfs(new VfsPassthrough())
+//                .withVfs(new VfsPassthrough(rootDir))
+//                .withVfs(new TestVFS(Paths.get(rootDir), exportFile.exports().collect(Collectors.toList()).iterator()))
+                .withVfs(new TestVFS(Path.of(rootDir), null))
                 .withOperationExecutor(new MDSOperationExecutor())
                 .build();
             // clang-format on
 
-            nfsSvc.register(new OncRpcProgram(100003, 4), nfs4);
-
+            nfsSvc.register(new OncRpcProgram(nfs4_prot.NFS4_PROGRAM, nfs4_prot.NFS_V4), nfs4);
             nfsSvc.start();
 
             System.in.read();

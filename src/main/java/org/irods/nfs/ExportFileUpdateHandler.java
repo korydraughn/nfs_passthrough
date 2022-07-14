@@ -14,7 +14,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.dcache.nfs.ExportFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,11 +28,11 @@ public class ExportFileUpdateHandler extends ChannelInboundHandlerAdapter
     private static final Logger log = LoggerFactory.getLogger(ExportFileUpdateServer.class);
 
     private String exportFilePath;
-    private ExportFile exportFile;
+    private DynamicExportFile exportFile;
     private Map<Integer, Function<String, ApiResponse>> operations = new HashMap<>();
     private ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    public ExportFileUpdateHandler(String exportFilePath, ExportFile exportFile)
+    public ExportFileUpdateHandler(String exportFilePath, DynamicExportFile exportFile)
     {
         this.exportFilePath = Preconditions.checkNotNull(exportFilePath);
         this.exportFile = Preconditions.checkNotNull(exportFile);
@@ -99,10 +98,10 @@ public class ExportFileUpdateHandler extends ChannelInboundHandlerAdapter
             // If the temp object does not contain any entries, we know there
             // was a problem with the new export information.
 
-            final var tempExportFile = new ExportFile(new File(tempExportFilePath.toString()));
+            final var tempExportFile = new DynamicExportFile(new File(tempExportFilePath.toString()));
 
             if (tempExportFile.exports().count() == 0) {
-                return new ApiResponse(1, "Invalid export file input.");
+                return API_RESPONSE_NO_VALID_EXPORT_ENTRIES;
             }
 
             // The export file data is good.
@@ -124,13 +123,16 @@ public class ExportFileUpdateHandler extends ChannelInboundHandlerAdapter
             exportFile.rescan();
             printExportFileContents();
 
+            if (!exportFile.getMalformedExportEntries().isEmpty()) {
+                return new ApiResponse(EC_PARTIAL_UPDATE_SUCCESS, exportFile.getMalformedExportEntries().toString());
+            }
+
             return API_RESPONSE_SUCCESS;
         }
         catch (IOException e) {
             log.error(e.getMessage());
         }
-        finally
-        {
+        finally {
             rwLock.writeLock().unlock();
             log.info("Operation completed.");
         }
@@ -147,8 +149,7 @@ public class ExportFileUpdateHandler extends ChannelInboundHandlerAdapter
             final var contents = exportFile.exports().collect(Collectors.toList());
             return new ApiResponse(0, contents.toString());
         }
-        finally
-        {
+        finally {
             rwLock.readLock().unlock();
             log.info("Operation completed.");
         }
@@ -161,10 +162,18 @@ public class ExportFileUpdateHandler extends ChannelInboundHandlerAdapter
     }
 
     // clang-format off
-    private static final ApiResponse API_RESPONSE_SUCCESS               = new ApiResponse();
-    private static final ApiResponse API_RESPONSE_ERROR                 = new ApiResponse(-1000, "Error while processing request.");
-    private static final ApiResponse API_RESPONSE_INVALID_API_NUMBER    = new ApiResponse(-1001, "Invalid API number.");
-    private static final ApiResponse API_RESPONSE_UPDATE_IN_PROGRESS    = new ApiResponse(-1002, "Update already in progress.");
-    private static final ApiResponse API_RESPONSE_NULL_OR_EMPTY_STRING  = new ApiResponse(-1003, "Invalid input: Null or empty string");
+    private static final int EC_GENERAL_ERROR           = -1000;
+    private static final int EC_INVALID_API_NUMBER      = -1001;
+    private static final int EC_UPDATE_IN_PROGRESS      = -1002;
+    private static final int EC_NULL_OR_EMPTY_STRING	= -1003;
+    private static final int EC_NO_VALID_EXPORT_ENTRIES = -1004;
+    private static final int EC_PARTIAL_UPDATE_SUCCESS  = -1005;
+
+    private static final ApiResponse API_RESPONSE_SUCCESS                   = new ApiResponse();
+    private static final ApiResponse API_RESPONSE_ERROR                     = new ApiResponse(EC_GENERAL_ERROR,           "Error while processing request.");
+    private static final ApiResponse API_RESPONSE_INVALID_API_NUMBER        = new ApiResponse(EC_INVALID_API_NUMBER,      "Invalid API number.");
+    private static final ApiResponse API_RESPONSE_UPDATE_IN_PROGRESS        = new ApiResponse(EC_UPDATE_IN_PROGRESS,      "Update already in progress.");
+    private static final ApiResponse API_RESPONSE_NO_VALID_EXPORT_ENTRIES   = new ApiResponse(EC_NO_VALID_EXPORT_ENTRIES, "No valid export entries.");
+    private static final ApiResponse API_RESPONSE_NULL_OR_EMPTY_STRING      = new ApiResponse(EC_NULL_OR_EMPTY_STRING,    "Invalid input: Null or empty string");
     // clang-format on
 }

@@ -1,6 +1,5 @@
 package org.irods.nfs;
 
-import org.dcache.nfs.ExportFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,9 +22,9 @@ public class ExportFileUpdateServer
     //    private ChannelFuture shutdownFuture;
     private int port;
     private String exportFilePath;
-    private ExportFile exportFile;
+    private DynamicExportFile exportFile;
 
-    public ExportFileUpdateServer(int port, String exportFilePath, ExportFile exportFile)
+    public ExportFileUpdateServer(int port, String exportFilePath, DynamicExportFile exportFile)
     {
         Preconditions.checkArgument(port > 1023);
         this.port = port;
