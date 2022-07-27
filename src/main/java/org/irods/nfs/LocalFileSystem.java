@@ -75,32 +75,35 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.primitives.Longs;
 
-public class LocalFileSystem implements VirtualFileSystem {
-
+public class LocalFileSystem implements VirtualFileSystem
+{
     private static final Logger LOG = LoggerFactory.getLogger(LocalFileSystem.class);
 
     private final Path _root;
     private final Map<Long, Path> inodeToPath = new ConcurrentHashMap<>();
     private final Map<Path, Long> pathToInode = new ConcurrentHashMap<>();
-    private final AtomicLong fileId = new AtomicLong(1); //numbering starts at 1
+    private final AtomicLong fileId = new AtomicLong(1); // numbering starts at 1
     private final NfsIdMapping _idMapper = new SimpleIdMap();
-    private final UserPrincipalLookupService _lookupService =
-            FileSystems.getDefault().getUserPrincipalLookupService();
+    private final UserPrincipalLookupService _lookupService = FileSystems.getDefault().getUserPrincipalLookupService();
 
     private final static boolean IS_UNIX;
-    static {
+    static
+    {
         IS_UNIX = !System.getProperty("os.name").startsWith("Win");
     }
 
-    private Inode toFh(long inodeNumber) {
+    private Inode toFh(long inodeNumber)
+    {
         return Inode.forFile(Longs.toByteArray(inodeNumber));
     }
 
-    private long getInodeNumber(Inode inode) {
+    private long getInodeNumber(Inode inode)
+    {
         return Longs.fromByteArray(inode.getFileId());
     }
 
-    private Path resolveInode(long inodeNumber) throws NoEntException {
+    private Path resolveInode(long inodeNumber) throws NoEntException
+    {
         Path path = inodeToPath.get(inodeNumber);
         if (path == null) {
             throw new NoEntException("inode #" + inodeNumber);
@@ -108,7 +111,8 @@ public class LocalFileSystem implements VirtualFileSystem {
         return path;
     }
 
-    private long resolvePath(Path path) throws NoEntException {
+    private long resolvePath(Path path) throws NoEntException
+    {
         Long inodeNumber = pathToInode.get(path);
         if (inodeNumber == null) {
             throw new NoEntException("path " + path);
@@ -116,13 +120,14 @@ public class LocalFileSystem implements VirtualFileSystem {
         return inodeNumber;
     }
 
-    private void map(long inodeNumber, Path path) {
+    private void map(long inodeNumber, Path path)
+    {
         if (inodeToPath.putIfAbsent(inodeNumber, path) != null) {
             throw new IllegalStateException();
         }
         Long otherInodeNumber = pathToInode.putIfAbsent(path, inodeNumber);
         if (otherInodeNumber != null) {
-            //try rollback
+            // try rollback
             if (inodeToPath.remove(inodeNumber) != path) {
                 throw new IllegalStateException("cant map, rollback failed");
             }
@@ -130,7 +135,8 @@ public class LocalFileSystem implements VirtualFileSystem {
         }
     }
 
-    private void unmap(long inodeNumber, Path path) {
+    private void unmap(long inodeNumber, Path path)
+    {
         Path removedPath = inodeToPath.remove(inodeNumber);
         if (!path.equals(removedPath)) {
             throw new IllegalStateException();
@@ -140,18 +146,20 @@ public class LocalFileSystem implements VirtualFileSystem {
         }
     }
 
-    private void remap(long inodeNumber, Path oldPath, Path newPath) {
-        //TODO - attempt rollback?
+    private void remap(long inodeNumber, Path oldPath, Path newPath)
+    {
+        // TODO - attempt rollback?
         unmap(inodeNumber, oldPath);
         map(inodeNumber, newPath);
     }
 
-    public LocalFileSystem(Path root, Iterable<FsExport> exportIterable) throws IOException {
+    public LocalFileSystem(Path root, Iterable<FsExport> exportIterable) throws IOException
+    {
         _root = root;
         assert (Files.exists(_root));
-        
+
         if (exportIterable != null) {
-        	// Creates the shares under the root directory if they do not exist.
+            // Creates the shares under the root directory if they do not exist.
             for (FsExport export : exportIterable) {
                 String relativeExportPath = export.getPath().substring(1); // remove the opening '/'
                 Path exportRootPath = root.resolve(relativeExportPath);
@@ -162,10 +170,10 @@ public class LocalFileSystem implements VirtualFileSystem {
         }
 
         // Map existing structure (if any)
-        map(fileId.getAndIncrement(), _root); //so root is always inode #1
+        map(fileId.getAndIncrement(), _root); // so root is always inode #1
         Files.walkFileTree(_root, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+            @Override public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException
+            {
                 FileVisitResult superRes = super.preVisitDirectory(dir, attrs);
                 if (superRes != FileVisitResult.CONTINUE) {
                     return superRes;
@@ -177,8 +185,8 @@ public class LocalFileSystem implements VirtualFileSystem {
                 return FileVisitResult.CONTINUE;
             }
 
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+            @Override public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException
+            {
                 FileVisitResult superRes = super.visitFile(file, attrs);
                 if (superRes != FileVisitResult.CONTINUE) {
                     return superRes;
@@ -187,22 +195,24 @@ public class LocalFileSystem implements VirtualFileSystem {
                 return FileVisitResult.CONTINUE;
             }
         });
-        
+
         LOG.info("Server is ready to serve files!");
     }
 
-    public LocalFileSystem(Path root) throws IOException {
-    	this(root, null);
+    public LocalFileSystem(Path root) throws IOException
+    {
+        this(root, null);
     }
 
-    @Override
-    public Inode create(Inode parent, Type type, String path, Subject subject, int mode) throws IOException {
+    @Override public Inode create(Inode parent, Type type, String path, Subject subject, int mode) throws IOException
+    {
         long parentInodeNumber = getInodeNumber(parent);
         Path parentPath = resolveInode(parentInodeNumber);
         Path newPath = parentPath.resolve(path);
         try {
             Files.createFile(newPath);
-        } catch (FileAlreadyExistsException e) {
+        }
+        catch (FileAlreadyExistsException e) {
             throw new ExistException("path " + newPath);
         }
         long newInodeNumber = fileId.getAndIncrement();
@@ -211,40 +221,42 @@ public class LocalFileSystem implements VirtualFileSystem {
         return toFh(newInodeNumber);
     }
 
-    @Override
-    public FsStat getFsStat() throws IOException {
+    @Override public FsStat getFsStat() throws IOException
+    {
         FileStore store = Files.getFileStore(_root);
         long total = store.getTotalSpace();
         long free = store.getUsableSpace();
-        return new FsStat(total, Long.MAX_VALUE, total-free, pathToInode.size());
+        return new FsStat(total, Long.MAX_VALUE, total - free, pathToInode.size());
     }
 
-    @Override
-    public Inode getRootInode() throws IOException {
-        return toFh(1); //always #1 (see constructor)
+    @Override public Inode getRootInode() throws IOException
+    {
+        return toFh(1); // always #1 (see constructor)
     }
 
-    @Override
-    public Inode lookup(Inode parent, String path) throws IOException {
-        //TODO - several issues
-        //2. we might accidentally allow composite paths here ("/dome/dir/down")
-        //3. we dont actually check that the parent exists
+    @Override public Inode lookup(Inode parent, String path) throws IOException
+    {
+        // TODO - several issues
+        // 2. we might accidentally allow composite paths here ("/dome/dir/down")
+        // 3. we dont actually check that the parent exists
         long parentInodeNumber = getInodeNumber(parent);
         Path parentPath = resolveInode(parentInodeNumber);
         Path child;
-        if(path.equals(".")) {
+        if (path.equals(".")) {
             child = parentPath;
-        } else if(path.equals("..")) {
-        	child = parentPath.equals(_root) ? _root : parentPath.getParent();
-        } else {
+        }
+        else if (path.equals("..")) {
+            child = parentPath.equals(_root) ? _root : parentPath.getParent();
+        }
+        else {
             child = parentPath.resolve(path);
         }
         long childInodeNumber = resolvePath(child);
         return toFh(childInodeNumber);
     }
 
-    @Override
-    public Inode link(Inode parent, Inode existing, String target, Subject subject) throws IOException {
+    @Override public Inode link(Inode parent, Inode existing, String target, Subject subject) throws IOException
+    {
         long parentInodeNumber = getInodeNumber(parent);
         Path parentPath = resolveInode(parentInodeNumber);
 
@@ -255,13 +267,17 @@ public class LocalFileSystem implements VirtualFileSystem {
 
         try {
             Files.createLink(targetPath, existingPath);
-        } catch (UnsupportedOperationException e) {
+        }
+        catch (UnsupportedOperationException e) {
             throw new NotSuppException("Not supported", e);
-        } catch (FileAlreadyExistsException e) {
+        }
+        catch (FileAlreadyExistsException e) {
             throw new ExistException("Path exists " + target, e);
-        } catch (SecurityException e) {
+        }
+        catch (SecurityException e) {
             throw new PermException("Permission denied: " + e.getMessage(), e);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new ServerFaultException("Failed to create: " + e.getMessage(), e);
         }
 
@@ -270,8 +286,8 @@ public class LocalFileSystem implements VirtualFileSystem {
         return toFh(newInodeNumber);
     }
 
-    @Override
-    public DirectoryStream list(Inode inode, byte[] bytes, long l) throws IOException {
+    @Override public DirectoryStream list(Inode inode, byte[] bytes, long l) throws IOException
+    {
         long inodeNumber = getInodeNumber(inode);
         Path path = resolveInode(inodeNumber);
         final List<DirectoryEntry> list = new ArrayList<>();
@@ -288,19 +304,20 @@ public class LocalFileSystem implements VirtualFileSystem {
         return new DirectoryStream(list);
     }
 
-    @Override
-    public byte[] directoryVerifier(Inode inode) throws IOException {
+    @Override public byte[] directoryVerifier(Inode inode) throws IOException
+    {
         return DirectoryStream.ZERO_VERIFIER;
     }
 
-    @Override
-    public Inode mkdir(Inode parent, String path, Subject subject, int mode) throws IOException {
+    @Override public Inode mkdir(Inode parent, String path, Subject subject, int mode) throws IOException
+    {
         long parentInodeNumber = getInodeNumber(parent);
         Path parentPath = resolveInode(parentInodeNumber);
         Path newPath = parentPath.resolve(path);
         try {
             Files.createDirectory(newPath);
-        } catch (FileAlreadyExistsException e) {
+        }
+        catch (FileAlreadyExistsException e) {
             throw new ExistException("path " + newPath);
         }
         long newInodeNumber = fileId.getAndIncrement();
@@ -320,45 +337,50 @@ public class LocalFileSystem implements VirtualFileSystem {
         int gid = -1;
         for (Principal principal : subject.getPrincipals()) {
             if (principal instanceof UidPrincipal) {
-                uid = (int) ((UidPrincipal)principal).getUid();
+                uid = (int) ((UidPrincipal) principal).getUid();
             }
             if (principal instanceof GidPrincipal) {
-                gid = (int) ((GidPrincipal)principal).getGid();
+                gid = (int) ((GidPrincipal) principal).getGid();
             }
         }
 
         if (uid != -1) {
             try {
                 Files.setAttribute(target, "unix:uid", uid, NOFOLLOW_LINKS);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 LOG.warn("Unable to chown file {}: {}", target, e.getMessage());
             }
-        } else {
+        }
+        else {
             LOG.warn("File created without uid: {}", target);
         }
         if (gid != -1) {
             try {
                 Files.setAttribute(target, "unix:gid", gid, NOFOLLOW_LINKS);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 LOG.warn("Unable to chown file {}: {}", target, e.getMessage());
             }
-        } else {
+        }
+        else {
             LOG.warn("File created without gid: {}", target);
         }
 
         try {
             Files.setAttribute(target, "unix:mode", mode, NOFOLLOW_LINKS);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             LOG.warn("Unable to set mode of file {}: {}", target, e.getMessage());
         }
     }
 
-    @Override
-    public boolean move(Inode src, String oldName, Inode dest, String newName) throws IOException {
-        //TODO - several issues
-        //1. we might not deal with "." and ".." properly
-        //2. we might accidentally allow composite paths here ("/dome/dir/down")
-        //3. we return true (changed) even though in theory a file might be renamed to itself?
+    @Override public boolean move(Inode src, String oldName, Inode dest, String newName) throws IOException
+    {
+        // TODO - several issues
+        // 1. we might not deal with "." and ".." properly
+        // 2. we might accidentally allow composite paths here ("/dome/dir/down")
+        // 3. we return true (changed) even though in theory a file might be renamed to itself?
         long currentParentInodeNumber = getInodeNumber(src);
         Path currentParentPath = resolveInode(currentParentInodeNumber);
         long destParentInodeNumber = getInodeNumber(dest);
@@ -368,18 +390,19 @@ public class LocalFileSystem implements VirtualFileSystem {
         Path newPath = destPath.resolve(newName);
         try {
             Files.move(currentPath, newPath, StandardCopyOption.ATOMIC_MOVE);
-        } catch (FileAlreadyExistsException e) {
+        }
+        catch (FileAlreadyExistsException e) {
             throw new ExistException("path " + newPath);
         }
         remap(targetInodeNumber, currentPath, newPath);
         return true;
     }
 
-    @Override
-    public Inode parentOf(Inode inode) throws IOException {
+    @Override public Inode parentOf(Inode inode) throws IOException
+    {
         long inodeNumber = getInodeNumber(inode);
         if (inodeNumber == 1) {
-            throw new NoEntException("no parent"); //its the root
+            throw new NoEntException("no parent"); // its the root
         }
         Path path = resolveInode(inodeNumber);
         Path parentPath = path.getParent();
@@ -387,8 +410,8 @@ public class LocalFileSystem implements VirtualFileSystem {
         return toFh(parentInodeNumber);
     }
 
-    @Override
-    public int read(Inode inode, byte[] data, long offset, int count) throws IOException {
+    @Override public int read(Inode inode, byte[] data, long offset, int count) throws IOException
+    {
         long inodeNumber = getInodeNumber(inode);
         Path path = resolveInode(inodeNumber);
         ByteBuffer destBuffer = ByteBuffer.wrap(data, 0, count);
@@ -397,29 +420,31 @@ public class LocalFileSystem implements VirtualFileSystem {
         }
     }
 
-    @Override
-    public String readlink(Inode inode) throws IOException {
+    @Override public String readlink(Inode inode) throws IOException
+    {
         long inodeNumber = getInodeNumber(inode);
         Path path = resolveInode(inodeNumber);
         return Files.readSymbolicLink(path).toString();
     }
 
-    @Override
-    public void remove(Inode parent, String path) throws IOException {
+    @Override public void remove(Inode parent, String path) throws IOException
+    {
         long parentInodeNumber = getInodeNumber(parent);
         Path parentPath = resolveInode(parentInodeNumber);
         Path targetPath = parentPath.resolve(path);
         long targetInodeNumber = resolvePath(targetPath);
         try {
             Files.delete(targetPath);
-        } catch (DirectoryNotEmptyException e) {
+        }
+        catch (DirectoryNotEmptyException e) {
             throw new NotEmptyException("dir " + targetPath + " is note empty", e);
         }
         unmap(targetInodeNumber, targetPath);
     }
 
     @Override
-    public Inode symlink(Inode parent, String linkName, String targetName, Subject subject, int mode) throws IOException {
+    public Inode symlink(Inode parent, String linkName, String targetName, Subject subject, int mode) throws IOException
+    {
         long parentInodeNumber = getInodeNumber(parent);
         Path parentPath = resolveInode(parentInodeNumber);
         Path link = parentPath.resolve(linkName);
@@ -429,13 +454,17 @@ public class LocalFileSystem implements VirtualFileSystem {
         }
         try {
             Files.createSymbolicLink(link, target);
-        } catch (UnsupportedOperationException e) {
+        }
+        catch (UnsupportedOperationException e) {
             throw new NotSuppException("Not supported", e);
-        } catch (FileAlreadyExistsException e) {
+        }
+        catch (FileAlreadyExistsException e) {
             throw new ExistException("Path exists " + linkName, e);
-        } catch (SecurityException e) {
+        }
+        catch (SecurityException e) {
             throw new PermException("Permission denied: " + e.getMessage(), e);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new ServerFaultException("Failed to create: " + e.getMessage(), e);
         }
 
@@ -447,7 +476,9 @@ public class LocalFileSystem implements VirtualFileSystem {
     }
 
     @Override
-    public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel) throws IOException {
+    public WriteResult write(Inode inode, byte[] data, long offset, int count, StabilityLevel stabilityLevel)
+        throws IOException
+    {
         long inodeNumber = getInodeNumber(inode);
         Path path = resolveInode(inodeNumber);
         ByteBuffer srcBuffer = ByteBuffer.wrap(data, 0, count);
@@ -457,15 +488,15 @@ public class LocalFileSystem implements VirtualFileSystem {
         }
     }
 
-    @Override
-    public void commit(Inode inode, long l, int i) throws IOException {
+    @Override public void commit(Inode inode, long l, int i) throws IOException
+    {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
-    private Stat statPath(Path p, long inodeNumber) throws IOException {
-
-        Class<? extends  BasicFileAttributeView> attributeClass =
-                IS_UNIX ? PosixFileAttributeView.class : DosFileAttributeView.class;
+    private Stat statPath(Path p, long inodeNumber) throws IOException
+    {
+        Class<? extends BasicFileAttributeView> attributeClass =
+            IS_UNIX ? PosixFileAttributeView.class : DosFileAttributeView.class;
 
         BasicFileAttributes attrs = Files.getFileAttributeView(p, attributeClass, NOFOLLOW_LINKS).readAttributes();
 
@@ -480,12 +511,13 @@ public class LocalFileSystem implements VirtualFileSystem {
             stat.setUid((Integer) Files.getAttribute(p, "unix:uid", NOFOLLOW_LINKS));
             stat.setMode((Integer) Files.getAttribute(p, "unix:mode", NOFOLLOW_LINKS));
             stat.setNlink((Integer) Files.getAttribute(p, "unix:nlink", NOFOLLOW_LINKS));
-        } else {
-            DosFileAttributes dosAttrs = (DosFileAttributes)attrs;
+        }
+        else {
+            DosFileAttributes dosAttrs = (DosFileAttributes) attrs;
             stat.setGid(0);
             stat.setUid(0);
             int type = dosAttrs.isSymbolicLink() ? Stat.S_IFLNK : dosAttrs.isDirectory() ? Stat.S_IFDIR : Stat.S_IFREG;
-            stat.setMode( type |(dosAttrs.isReadOnly()? 0400 : 0600));
+            stat.setMode(type | (dosAttrs.isReadOnly() ? 0400 : 0600));
             stat.setNlink(1);
         }
 
@@ -493,26 +525,26 @@ public class LocalFileSystem implements VirtualFileSystem {
         stat.setIno((int) inodeNumber);
         stat.setRdev(17);
         stat.setSize(attrs.size());
-//        stat.setFileid((int) inodeNumber);
+        //        stat.setFileid((int) inodeNumber);
         stat.setGeneration(attrs.lastModifiedTime().toMillis());
 
         return stat;
     }
 
-    @Override
-    public int access(Subject subject, Inode inode, int mode) throws IOException {
+    @Override public int access(Subject subject, Inode inode, int mode) throws IOException
+    {
         return mode;
     }
 
-    @Override
-    public Stat getattr(Inode inode) throws IOException {
+    @Override public Stat getattr(Inode inode) throws IOException
+    {
         long inodeNumber = getInodeNumber(inode);
         Path path = resolveInode(inodeNumber);
         return statPath(path, inodeNumber);
     }
 
-    @Override
-    public void setattr(Inode inode, Stat stat) throws IOException {
+    @Override public void setattr(Inode inode, Stat stat) throws IOException
+    {
         if (!IS_UNIX) {
             // FIXME: windows must support some kind of attribute update as well
             return;
@@ -520,13 +552,15 @@ public class LocalFileSystem implements VirtualFileSystem {
 
         long inodeNumber = getInodeNumber(inode);
         Path path = resolveInode(inodeNumber);
-        PosixFileAttributeView attributeView = Files.getFileAttributeView(path, PosixFileAttributeView.class, NOFOLLOW_LINKS);
+        PosixFileAttributeView attributeView =
+            Files.getFileAttributeView(path, PosixFileAttributeView.class, NOFOLLOW_LINKS);
         if (stat.isDefined(Stat.StatAttribute.OWNER)) {
             try {
                 String uid = String.valueOf(stat.getUid());
                 UserPrincipal user = _lookupService.lookupPrincipalByName(uid);
                 attributeView.setOwner(user);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new UnsupportedOperationException("set uid failed: " + e.getMessage(), e);
             }
         }
@@ -535,14 +569,16 @@ public class LocalFileSystem implements VirtualFileSystem {
                 String gid = String.valueOf(stat.getGid());
                 GroupPrincipal group = _lookupService.lookupPrincipalByGroupName(gid);
                 attributeView.setGroup(group);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new UnsupportedOperationException("set gid failed: " + e.getMessage(), e);
             }
         }
         if (stat.isDefined(Stat.StatAttribute.MODE)) {
             try {
                 Files.setAttribute(path, "unix:mode", stat.getMode(), NOFOLLOW_LINKS);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new UnsupportedOperationException("set mode unsupported: " + e.getMessage(), e);
             }
         }
@@ -555,7 +591,8 @@ public class LocalFileSystem implements VirtualFileSystem {
             try {
                 FileTime time = FileTime.fromMillis(stat.getCTime());
                 Files.setAttribute(path, "unix:lastAccessTime", time, NOFOLLOW_LINKS);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new UnsupportedOperationException("set atime failed: " + e.getMessage(), e);
             }
         }
@@ -563,7 +600,8 @@ public class LocalFileSystem implements VirtualFileSystem {
             try {
                 FileTime time = FileTime.fromMillis(stat.getMTime());
                 Files.setAttribute(path, "unix:lastModifiedTime", time, NOFOLLOW_LINKS);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new UnsupportedOperationException("set mtime failed: " + e.getMessage(), e);
             }
         }
@@ -571,46 +609,47 @@ public class LocalFileSystem implements VirtualFileSystem {
             try {
                 FileTime time = FileTime.fromMillis(stat.getCTime());
                 Files.setAttribute(path, "unix:ctime", time, NOFOLLOW_LINKS);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new UnsupportedOperationException("set ctime failed: " + e.getMessage(), e);
             }
         }
     }
 
-    @Override
-    public nfsace4[] getAcl(Inode inode) throws IOException {
+    @Override public nfsace4[] getAcl(Inode inode) throws IOException
+    {
         return new nfsace4[0];
     }
 
-    @Override
-    public void setAcl(Inode inode, nfsace4[] acl) throws IOException {
+    @Override public void setAcl(Inode inode, nfsace4[] acl) throws IOException
+    {
         // NOP
     }
 
-    @Override
-    public boolean hasIOLayout(Inode inode) throws IOException {
+    @Override public boolean hasIOLayout(Inode inode) throws IOException
+    {
         return false;
     }
 
-    @Override
-    public AclCheckable getAclCheckable() {
+    @Override public AclCheckable getAclCheckable()
+    {
         return AclCheckable.UNDEFINED_ALL;
     }
 
-    @Override
-    public NfsIdMapping getIdMapper() {
+    @Override public NfsIdMapping getIdMapper()
+    {
         return _idMapper;
     }
 
-	@Override
-	public boolean getCaseInsensitive() {
-		// TODO Auto-generated method stub
-		return false;
-	}
+    @Override public boolean getCaseInsensitive()
+    {
+        // TODO Auto-generated method stub
+        return false;
+    }
 
-	@Override
-	public boolean getCasePreserving() {
-		// TODO Auto-generated method stub
-		return false;
-	}
+    @Override public boolean getCasePreserving()
+    {
+        // TODO Auto-generated method stub
+        return false;
+    }
 }

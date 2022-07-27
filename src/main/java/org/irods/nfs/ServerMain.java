@@ -121,10 +121,10 @@ public class ServerMain implements Callable<Integer>
             }
         });
     }
-    
+
     private void createFileIfItDoesNotExist(String _path)
     {
-    	final var p = Path.of(_path);
+        final var p = Path.of(_path);
 
         if (!Files.exists(p)) {
             try {
