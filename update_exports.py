@@ -1,17 +1,13 @@
 import socket
 import json
 
-payload = (
-'/     10.1.1.1(rw,sec=sys,anonuid=1000,anongid=1000)\n'
-'/home 10.1.1.2(rw,sec=sys,anonuid=2000,anongid=2001)\n'
-'/home 10.1.1.2(rw,sec=sys,anonuid=2000,anongid=2001)\n'
-'/home 10.1.1.2(rw,sec=sys,anonuid=2005,anongid=2005)\n'
-'/home/kory/Downloads *(rw,sec=sys)\n'
+exports = (
+'/ *\n'
 )
 
 req = json.dumps({
     'op_code': 1000,
-    'payload': payload
+    'payload': exports
 })
 
 s = socket.socket()
