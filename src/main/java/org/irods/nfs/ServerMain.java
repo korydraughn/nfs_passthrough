@@ -2,10 +2,7 @@ package org.irods.nfs;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.attribute.FileAttribute;
 import java.util.concurrent.Callable;
 
 import org.apache.logging.log4j.LogManager;
@@ -60,12 +57,7 @@ public class ServerMain implements Callable<Integer>
     {
         addShutdownHookForLogger();
 
-        // Create the export file if it does not exist.
-        try {
-            Files.createFile(Path.of(exportFilePath), (FileAttribute<?>[]) null);
-        }
-        catch (Exception e) {
-        }
+        createFileIfItDoesNotExist(exportFilePath);
 
         // clang-format off
         nfsSvc = new OncRpcSvcBuilder()
@@ -89,9 +81,7 @@ public class ServerMain implements Callable<Integer>
             // clang-format off
             final var nfs4 = new NFSServerV41.Builder()
                 .withExportTable(exportFile)
-//                .withVfs(new VfsPassthrough(rootDir))
-//                .withVfs(new TestVFS(Paths.get(rootDir), exportFile.exports().collect(Collectors.toList()).iterator()))
-                .withVfs(new TestVFS(Path.of(rootDir), null))
+                .withVfs(new LocalFileSystem(Path.of(rootDir)))
                 .withOperationExecutor(new MDSOperationExecutor())
                 .build();
             // clang-format on
@@ -130,6 +120,19 @@ public class ServerMain implements Callable<Integer>
                 LogManager.shutdown();
             }
         });
+    }
+    
+    private void createFileIfItDoesNotExist(String _path)
+    {
+    	final var p = Path.of(_path);
+
+        if (!Files.exists(p)) {
+            try {
+                Files.createFile(p);
+            }
+            catch (Exception e) {
+            }
+        }
     }
 
     public static void main(String[] args)

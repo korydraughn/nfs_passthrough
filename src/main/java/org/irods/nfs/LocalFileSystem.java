@@ -1,3 +1,19 @@
+/*
+   Copyright 2013 Tiramisu Mokka <mail@kofemann.dev>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package org.irods.nfs;
 
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
@@ -59,9 +75,9 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.primitives.Longs;
 
-public class TestVFS implements VirtualFileSystem {
+public class LocalFileSystem implements VirtualFileSystem {
 
-    private static final Logger LOG = LoggerFactory.getLogger(TestVFS.class);
+    private static final Logger LOG = LoggerFactory.getLogger(LocalFileSystem.class);
 
     private final Path _root;
     private final Map<Long, Path> inodeToPath = new ConcurrentHashMap<>();
@@ -130,10 +146,12 @@ public class TestVFS implements VirtualFileSystem {
         map(inodeNumber, newPath);
     }
 
-    public TestVFS(Path root, Iterable<FsExport> exportIterable) throws IOException {
+    public LocalFileSystem(Path root, Iterable<FsExport> exportIterable) throws IOException {
         _root = root;
         assert (Files.exists(_root));
+        
         if (exportIterable != null) {
+        	// Creates the shares under the root directory if they do not exist.
             for (FsExport export : exportIterable) {
                 String relativeExportPath = export.getPath().substring(1); // remove the opening '/'
                 Path exportRootPath = root.resolve(relativeExportPath);
@@ -142,7 +160,8 @@ public class TestVFS implements VirtualFileSystem {
                 }
             }
         }
-        //map existing structure (if any)
+
+        // Map existing structure (if any)
         map(fileId.getAndIncrement(), _root); //so root is always inode #1
         Files.walkFileTree(_root, new SimpleFileVisitor<Path>() {
             @Override
@@ -168,6 +187,12 @@ public class TestVFS implements VirtualFileSystem {
                 return FileVisitResult.CONTINUE;
             }
         });
+        
+        LOG.info("Server is ready to serve files!");
+    }
+
+    public LocalFileSystem(Path root) throws IOException {
+    	this(root, null);
     }
 
     @Override
@@ -210,7 +235,7 @@ public class TestVFS implements VirtualFileSystem {
         if(path.equals(".")) {
             child = parentPath;
         } else if(path.equals("..")) {
-            child = parentPath.getParent();
+        	child = parentPath.equals(_root) ? _root : parentPath.getParent();
         } else {
             child = parentPath.resolve(path);
         }
