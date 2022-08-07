@@ -1,5 +1,27 @@
 # System Design Notes
 
+Last Discussion: -
+
+- Researched and performed various tests using the Linux NFS server
+    - See [LINUX_NFS_FINDINGS.md](LINUX_NFS_FINDINGS.md) for details
+
+---
+Last Discussion: 2022-08-01
+
+- Implemented first working version of NFS server
+    - Supports partial updates to the export table
+    - Malformed export entries are reported back to the client
+    - Malformed export entries are ignored by the server
+    - Server is not production-ready, but demonstrates that the requested functionality is possible
+
+- Verify the behavior of the Linux NFS server when duplicate export entries are encountered
+    - "exportfs -a"
+    - Does the order of the entries matter?
+    - Is this behavior documented in the RFC?
+    - Find other examples of people doing this and that it was design like this on purpose.
+    - Is there an exports file linter?
+
+---
 Last Discussion: 2022-06-06
 
 - Export File Updates (Partial vs Full)
